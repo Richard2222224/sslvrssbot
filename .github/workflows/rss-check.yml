@@ -2,7 +2,7 @@ name: RSS Checker
 
 on:
   schedule:
-      - cron: '* * * * *'  # каждую минуту
+     - cron: '*/2 * * * *'  # каждые 2 минуты
   workflow_dispatch:  # можно запустить вручную
 
 jobs:
