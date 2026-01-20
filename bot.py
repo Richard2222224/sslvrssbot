@@ -2,7 +2,6 @@ import os
 import time
 import requests
 import feedparser
-import re
 from datetime import datetime
 
 # Настройки
@@ -13,134 +12,103 @@ CHAT_ID = os.environ.get('CHAT_ID')
 RSS_FEEDS = [
     {
         "url": "https://www.ss.com/lv/electronics/computers/printers-scanners-cartridges/printers/rss/",
-        "name": "🖨️ Принтеры"
+        "name": "🖨️ Принтер",
+        "file": "printers.txt"
     },
     {
         "url": "https://www.ss.com/lv/electronics/computers/monitors/rss/",
-        "name": "🖥️ Мониторы"
+        "name": "🖥️ Монитор",
+        "file": "monitors.txt"
     }
 ]
 
-STATE_FILE = "last_check.txt"
-
-def get_last_items():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, 'r') as f:
-            content = f.read().strip()
-            if content:
-                return set(content.split('\n'))
+def load_saved_links(filename):
+    """Загружает сохранённые ссылки из файла"""
+    if os.path.exists(filename):
+        with open(filename, 'r', encoding='utf-8') as f:
+            return set(line.strip() for line in f if line.strip())
     return set()
 
-def save_last_items(items):
-    with open(STATE_FILE, 'w') as f:
-        f.write('\n'.join(items))
+def save_links(filename, links):
+    """Сохраняет ссылки в файл"""
+    with open(filename, 'w', encoding='utf-8') as f:
+        for link in links:
+            f.write(link + '\n')
 
-def clean_html(text):
-    """Удаляет HTML-теги из текста"""
-    # Удаляем все HTML-теги
-    text = re.sub(r'<[^>]+>', '', text)
-    # Декодируем HTML-entities
-    text = text.replace('&nbsp;', ' ')
-    text = text.replace('&amp;', '&')
-    text = text.replace('&lt;', '<')
-    text = text.replace('&gt;', '>')
-    text = text.replace('&quot;', '"')
-    # Убираем множественные пробелы
-    text = re.sub(r'\s+', ' ', text)
-    return text.strip()
-
-def send_telegram_message(text):
-    print(f"\n📤 Попытка отправить сообщение...")
-    print(f"   BOT_TOKEN: {BOT_TOKEN[:20]}... (длина: {len(BOT_TOKEN) if BOT_TOKEN else 0})")
-    print(f"   CHAT_ID: {CHAT_ID}")
-    
-    if not BOT_TOKEN:
-        print("❌ ОШИБКА: BOT_TOKEN не установлен!")
-        return False
-    
-    if not CHAT_ID:
-        print("❌ ОШИБКА: CHAT_ID не установлен!")
-        return False
-    
+def send_telegram(text):
+    """Отправляет сообщение в Telegram"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {
         "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": False
+        "text": text
     }
-    
     try:
         response = requests.post(url, data=data, timeout=10)
-        print(f"   Статус ответа: {response.status_code}")
-        
-        result = response.json()
-        
-        if response.status_code == 200 and result.get('ok'):
-            print("✅ Сообщение успешно отправлено!")
+        if response.status_code == 200:
+            print(f"✅ Отправлено: {text[:50]}...")
             return True
         else:
-            print(f"❌ Ошибка отправки: {result.get('description', 'Неизвестная ошибка')}")
+            print(f"❌ Ошибка {response.status_code}")
             return False
-            
     except Exception as e:
-        print(f"❌ Исключение при отправке: {type(e).__name__}: {e}")
+        print(f"❌ Ошибка: {e}")
         return False
 
-def check_rss():
-    print(f"\n🚀 Запуск проверки RSS в {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+def check_feed(feed_info):
+    """Проверяет один RSS-канал"""
+    print(f"\n🔍 Проверяю: {feed_info['name']}")
     
-    last_items = get_last_items()
-    current_items = set()
-    new_count = 0
+    # Загружаем старые ссылки
+    old_links = load_saved_links(feed_info['file'])
+    print(f"   📁 Сохранено ранее: {len(old_links)} ссылок")
     
-    print(f"📊 Последних элементов в памяти: {len(last_items)}")
+    # Получаем текущие объявления
+    feed = feedparser.parse(feed_info['url'])
+    current_links = []
+    
+    for entry in feed.entries[:20]:
+        current_links.append(entry.link)
+    
+    print(f"   📥 Получено сейчас: {len(current_links)} объявлений")
+    
+    # Ищем новые ссылки
+    new_links = []
+    for link in current_links:
+        if link not in old_links:
+            new_links.append(link)
+    
+    print(f"   🆕 Новых: {len(new_links)}")
+    
+    # Отправляем уведомления о новых
+    if len(old_links) > 0:  # Только если это НЕ первый запуск
+        for link in new_links:
+            message = f"🔔 Новое объявление!\n\n{feed_info['name']}\n\n🔗 {link}"
+            send_telegram(message)
+            time.sleep(1)  # Пауза между сообщениями
+    else:
+        print(f"   ℹ️ Первый запуск — уведомления не отправляются")
+    
+    # Сохраняем текущие ссылки
+    save_links(feed_info['file'], current_links)
+    print(f"   💾 Сохранено {len(current_links)} ссылок в {feed_info['file']}")
+    
+    return len(new_links)
 
-    for feed_info in RSS_FEEDS:
-        try:
-            print(f"\n🔍 Проверяю: {feed_info['name']}")
-            feed = feedparser.parse(feed_info['url'])
-            
-            print(f"   Получено элементов: {len(feed.entries)}")
-            
-            for entry in feed.entries[:20]:
-                item_id = entry.link
-                current_items.add(item_id)
-                
-                if item_id not in last_items and len(last_items) > 0:
-                    title = entry.title
-                    link = entry.link
-                    raw_description = entry.get('description', 'Нет описания')
-                    
-                    # Очищаем HTML из описания
-                    description = clean_html(raw_description)
-                    
-                    # Ограничиваем длину описания
-                    if len(description) > 300:
-                        description = description[:300] + '...'
-                    
-                    print(f"\n   🆕 НОВОЕ: {title[:50]}...")
-                    
-                    message = f"{feed_info['name']} <b>Новое объявление</b>\n\n"
-                    message += f"📌 <b>{title}</b>\n\n"
-                    message += f"{description}\n\n"
-                    message += f"🔗 <a href='{link}'>Открыть объявление</a>"
-                    
-                    if send_telegram_message(message):
-                        new_count += 1
-                    
-                    time.sleep(2)
-        
-        except Exception as e:
-            print(f"❌ Ошибка проверки {feed_info['name']}: {e}")
-    
-    save_last_items(current_items)
-    print(f"\n✅ Проверка завершена. Найдено новых: {new_count}")
-    print(f"📊 Всего элементов сейчас: {len(current_items)}")
-
-if __name__ == "__main__":
+def main():
     print("="*60)
     print("🤖 RSS Telegram Bot")
+    print(f"⏰ Запуск: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
-    check_rss()
+    
+    total_new = 0
+    
+    for feed_info in RSS_FEEDS:
+        new_count = check_feed(feed_info)
+        total_new += new_count
+    
+    print(f"\n{'='*60}")
+    print(f"✅ Проверка завершена. Всего новых: {total_new}")
     print("="*60)
+
+if __name__ == "__main__":
+    main()
