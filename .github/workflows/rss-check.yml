@@ -11,6 +11,9 @@ jobs:
   check-rss:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: write
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -30,10 +33,15 @@ jobs:
         CHAT_ID: ${{ secrets.CHAT_ID }}
       run: python bot.py
     
-    - name: Commit and push state file
+    - name: Commit state file
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add last_check.txt
         git diff --quiet && git diff --staged --quiet || git commit -m "Update last check state"
-        git push
+    
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
