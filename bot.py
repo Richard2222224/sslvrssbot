@@ -76,14 +76,7 @@ def send_telegram_message(text):
 def check_rss():
     print(f"\n🚀 Запуск проверки RSS в {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # ТЕСТОВОЕ сообщение
-    test_msg = "🧪 Тестовое сообщение! Бот запущен и работает!"
-    if send_telegram_message(test_msg):
-        print("✅ Тестовое сообщение успешно отправлено в Telegram!")
-    
     last_items = get_last_items()
-    # ... остальной код
-
     current_items = set()
     new_count = 0
     
