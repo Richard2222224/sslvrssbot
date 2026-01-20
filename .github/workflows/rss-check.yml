@@ -33,12 +33,12 @@ jobs:
         CHAT_ID: ${{ secrets.CHAT_ID }}
       run: python bot.py
     
-    - name: Commit state file
+    - name: Commit state files
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add last_check.txt
-        git diff --quiet && git diff --staged --quiet || git commit -m "Update last check state"
+        git add printers.txt monitors.txt
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update RSS state"
     
     - name: Push changes
       uses: ad-m/github-push-action@master
