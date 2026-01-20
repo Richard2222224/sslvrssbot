@@ -2,8 +2,10 @@ name: RSS Checker
 
 on:
   schedule:
-     - cron: '*/2 * * * *'  # каждые 2 минуты
-  workflow_dispatch:  # можно запустить вручную
+    - cron: '*/2 * * * *'  # каждые 2 минуты
+  workflow_dispatch:
+  repository_dispatch:
+    types: [check-rss]
 
 jobs:
   check-rss:
@@ -20,10 +22,18 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install requests feedparser
+        pip install requests feedparser beautifulsoup4
     
     - name: Run RSS checker
       env:
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         CHAT_ID: ${{ secrets.CHAT_ID }}
       run: python bot.py
+    
+    - name: Commit and push state file
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add last_check.txt
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update last check state"
+        git push
