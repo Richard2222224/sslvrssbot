@@ -60,4 +60,3 @@ def check_rss():
 
 if __name__ == "__main__":
     check_rss()
-
