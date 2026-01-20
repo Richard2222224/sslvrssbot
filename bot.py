@@ -11,7 +11,7 @@ CHAT_ID = os.environ.get('CHAT_ID')
 # RSS-каналы
 RSS_FEEDS = [
     {
-        "url": "https://www.ss.com/lv/electronics/computers/printers-scanners-cartridges/printers/rss/",
+        "url": "https://www.ss.com/lv/electronics/computers/printers-scanners-cartridges/rss/",
         "name": "🖨️ Принтеры"
     },
     {
