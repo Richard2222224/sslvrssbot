@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import feedparser
+import re
 from datetime import datetime
 
 # Настройки
@@ -11,7 +12,7 @@ CHAT_ID = os.environ.get('CHAT_ID')
 # RSS-каналы
 RSS_FEEDS = [
     {
-        "url": "https://www.ss.com/lv/electronics/computers/printers-scanners-cartridges/rss/",
+        "url": "https://www.ss.com/lv/electronics/computers/printers-scanners-cartridges/printers/rss/",
         "name": "🖨️ Принтеры"
     },
     {
@@ -33,6 +34,20 @@ def get_last_items():
 def save_last_items(items):
     with open(STATE_FILE, 'w') as f:
         f.write('\n'.join(items))
+
+def clean_html(text):
+    """Удаляет HTML-теги из текста"""
+    # Удаляем все HTML-теги
+    text = re.sub(r'<[^>]+>', '', text)
+    # Декодируем HTML-entities
+    text = text.replace('&nbsp;', ' ')
+    text = text.replace('&amp;', '&')
+    text = text.replace('&lt;', '<')
+    text = text.replace('&gt;', '>')
+    text = text.replace('&quot;', '"')
+    # Убираем множественные пробелы
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
 
 def send_telegram_message(text):
     print(f"\n📤 Попытка отправить сообщение...")
@@ -60,7 +75,6 @@ def send_telegram_message(text):
         print(f"   Статус ответа: {response.status_code}")
         
         result = response.json()
-        print(f"   Ответ API: {result}")
         
         if response.status_code == 200 and result.get('ok'):
             print("✅ Сообщение успешно отправлено!")
@@ -96,12 +110,19 @@ def check_rss():
                 if item_id not in last_items and len(last_items) > 0:
                     title = entry.title
                     link = entry.link
-                    description = entry.get('description', 'Нет описания')
+                    raw_description = entry.get('description', 'Нет описания')
+                    
+                    # Очищаем HTML из описания
+                    description = clean_html(raw_description)
+                    
+                    # Ограничиваем длину описания
+                    if len(description) > 300:
+                        description = description[:300] + '...'
                     
                     print(f"\n   🆕 НОВОЕ: {title[:50]}...")
                     
                     message = f"{feed_info['name']} <b>Новое объявление</b>\n\n"
-                    message += f"📌 {title}\n\n"
+                    message += f"📌 <b>{title}</b>\n\n"
                     message += f"{description}\n\n"
                     message += f"🔗 <a href='{link}'>Открыть объявление</a>"
                     
