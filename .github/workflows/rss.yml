@@ -2,7 +2,7 @@ name: SS.LV RSS Monitor
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # каждые 10 минут
+    - cron: "*/2 * * * *"  # каждые 10 минут
   workflow_dispatch:
 
 jobs:
@@ -20,12 +20,13 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python rss_check.py
+
+      - name: Commit state
         run: |
-          python rss_check.py
-                - name: Commit state
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add last_items.json || true
-          git commit -m "Update state" || true
+          git add sent_items.json || true
+          git commit -m "Update sent items" || true
           git push
 
